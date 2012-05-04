@@ -10,5 +10,5 @@ http://d.hatena.ne.jp/seraphy/20110408
 
 [備忘録]
 * Ubuntu12.04でのビルドでは、
-sudo apt-get install build-essential libtool manpages-dev manpages-ja-dev libtool-doc gtk+-2.0
+sudo apt-get install build-essential libtool manpages-dev manpages-ja-dev libtool-doc gtk+-3.0
 が必要です。

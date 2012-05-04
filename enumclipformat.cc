@@ -5,12 +5,17 @@
 #include <string>
 #include <sstream>
 
+#include <glib.h>
+#include <glib/gprintf.h>
+
 #include <gtk/gtk.h>
-#include <gdk/gdkkeysyms.h>
+#include <gdk/gdk.h>
+
 
 typedef std::basic_string<gchar> gstring;
 typedef std::list<gstring> gstring_list;
 typedef std::basic_stringstream<gchar> gstringstream;
+
 
 /**
  * メインフレーム
@@ -39,6 +44,16 @@ private:
    * アクセラレータ
    */
   GtkAccelGroup *accel_group;
+  
+  /**
+   * ステータスバー
+   */
+  GtkWidget *statusBar;
+  
+  /**
+   * ステータスバーのコンテキスト
+   */
+  guint statusBarContext;
 
 public:
 
@@ -50,6 +65,7 @@ public:
     // タイトルとサイズの設定
     gtk_window_set_title(GTK_WINDOW(window), "EnumClipFormat");
     gtk_window_set_default_size(GTK_WINDOW(window), 250, 200);
+    gtk_window_set_has_resize_grip(GTK_WINDOW(window), TRUE);
 
     // ウィンドウの閉じるイベントのハンドル
     g_signal_connect(G_OBJECT(window),
@@ -81,7 +97,8 @@ private:
   void initComponent()
   {
     // メニューとコンテンツの基本レイアウト
-    GtkWidget *vbox = gtk_vbox_new(FALSE, 0);
+    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_box_set_homogeneous (GTK_BOX(vbox), FALSE);
     gtk_container_add(GTK_CONTAINER(window), vbox);
 
     // メニューの構築
@@ -90,13 +107,12 @@ private:
 
     GtkWidget *menu = gtk_menu_new();
 
-
     GtkWidget *menu_chk_cb = gtk_menu_item_new_with_mnemonic(
         "クリップボードのチェック(_V)");
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_chk_cb);
 
     gtk_widget_add_accelerator(menu_chk_cb,
-        "activate", accel_group, GDK_v, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+        "activate", accel_group, GDK_KEY_v, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
 
     g_signal_connect(G_OBJECT(menu_chk_cb),
         "activate", G_CALLBACK(chk_cb_event), this);
@@ -107,7 +123,7 @@ private:
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_chk_primary);
 
     gtk_widget_add_accelerator(menu_chk_primary,
-        "activate", accel_group, GDK_p, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+        "activate", accel_group, GDK_KEY_p, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
 
     g_signal_connect(G_OBJECT(menu_chk_primary),
         "activate", G_CALLBACK(chk_primary_event), this);
@@ -119,7 +135,7 @@ private:
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_save);
 
     gtk_widget_add_accelerator(menu_save,
-        "activate", accel_group, GDK_s, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+        "activate", accel_group, GDK_KEY_s, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
 
     g_signal_connect(G_OBJECT(menu_save),
         "activate", G_CALLBACK(save_event), this);
@@ -132,7 +148,7 @@ private:
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_exit);
 
     gtk_widget_add_accelerator(menu_exit,
-         "activate", accel_group, GDK_q, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+         "activate", accel_group, GDK_KEY_q, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
 
     g_signal_connect(G_OBJECT(menu_exit),
          "activate", G_CALLBACK(gtk_main_quit), NULL); // 直接、gtk_main_quitを呼ぶ
@@ -157,7 +173,8 @@ private:
     gtk_box_pack_start(GTK_BOX(vbox), scroll, TRUE, TRUE, 0);
 
     // テキストボックス
-    GtkWidget *hbox = gtk_hbox_new(FALSE, 0);
+    GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_box_set_homogeneous (GTK_BOX(hbox), FALSE);
     gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
 
     formatnamebox = gtk_entry_new();
@@ -166,8 +183,14 @@ private:
     GtkWidget *save_button = gtk_button_new_with_label("クリップボードを保存");
     gtk_box_pack_start(GTK_BOX(hbox), save_button, FALSE, FALSE, 0);
 
-    gtk_signal_connect(GTK_OBJECT(save_button),
+    g_signal_connect(G_OBJECT(save_button),
         "clicked", G_CALLBACK(save_event), this);
+        
+    // ステータスバー
+    statusBar = gtk_statusbar_new();
+    gtk_box_pack_start(GTK_BOX(vbox), statusBar, FALSE, FALSE, 0);
+    
+    statusBarContext = gtk_statusbar_get_context_id(GTK_STATUSBAR(statusBar), "msg");
   }
 
   /**
@@ -186,8 +209,7 @@ private:
     // 形式名を列挙する
     gstring_list fmtList;
 
-    for (int idx = 0; idx < n_targets; idx++)
-    {
+    for (int idx = 0; idx < n_targets; idx++) {
       gstring fmtName = gdk_atom_name(targets[idx]);
       fmtList.push_back(fmtName);
     }
@@ -209,6 +231,12 @@ private:
     gtk_text_buffer_set_text(textbuf, stm.str().c_str(), -1);
 
     g_free(targets);
+    
+    // ステータスバーに表示
+    gchar msg[64] = {0};
+    g_sprintf(msg, "フォーマット数=%d", n_targets);
+    gtk_statusbar_remove_all(GTK_STATUSBAR(statusBar), statusBarContext);
+    gtk_statusbar_push(GTK_STATUSBAR(statusBar), statusBarContext, msg);
   }
 
   /**
@@ -300,7 +328,7 @@ private:
  */
 int main(int argc, char *argv[])
 {
-  gtk_set_locale();
+  setlocale (LC_ALL, "");
   gtk_init(&argc, &argv);
 
   MainFrame mainFrame;
