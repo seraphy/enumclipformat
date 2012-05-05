@@ -166,7 +166,7 @@ private:
     GtkWidget *save_button = gtk_button_new_with_label("クリップボードを保存");
     gtk_box_pack_start(GTK_BOX(hbox), save_button, FALSE, FALSE, 0);
 
-    gtk_signal_connect(GTK_OBJECT(save_button),
+    g_signal_connect(G_OBJECT(save_button),
         "clicked", G_CALLBACK(save_event), this);
   }
 
